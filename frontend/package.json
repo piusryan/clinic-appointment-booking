@@ -1,0 +1,22 @@
+{
+  "name": "clinic-frontend",
+  "version": "1.0.0",
+  "description": "P6 Clinic Appointment Booking frontend — React, hand-written CSS, no UI kit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "clinic-app": "file:..",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.2"
+  }
+}
