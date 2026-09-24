@@ -1,0 +1,117 @@
+CLINIC APPOINTMENT BOOKING - RUN & SETUP INSTRUCTIONS
+=====================================================
+
+Project layout:
+  backend/   Express + TypeScript + Mongoose + MongoDB (transactions)
+  frontend/  React 18 + Vite + hand-written CSS
+  shared/    shared/types.ts (API contract used by both)
+
+Prerequisites:
+  - Node.js 18+   (npm)
+  - MongoDB running with a REPLICA SET (transactions require it), e.g.:
+      mongod --replSet rs0 --dbpath C:\data\db --port 27017
+  - Bash/PowerShell terminal (commands below work in PowerShell)
+
+----------------------------------------------------------------
+STEP 1 - Backend: install, configure, seed
+----------------------------------------------------------------
+cd backend
+npm install
+copy .env.example .env        (PowerShell: Copy-Item .env.example .env)
+
+  Edit .env:
+    - Set MONGODB_URI. Default:
+        mongodb://localhost:27017/clinic?replicaSet=rs0
+    - Optionally change JWT_ACCESS_SECRET / JWT_REFRESH_SECRET.
+
+Seed database (wipes + creates Admin/Receptionist/Doctors/Patients):
+npm run seed
+
+----------------------------------------------------------------
+STEP 2 - Backend: run the API server
+----------------------------------------------------------------
+cd backend
+npm run dev          # starts at http://localhost:4000
+
+  Health check:
+  http://localhost:4000/health
+
+  Seeded login accounts (from npm run seed output):
+    admin@clinic.io       / AdminPass123
+    reception@clinic.io   / RecepPass123
+    dr.nolan@clinic.io    / NolanPass1
+    dr.brady@clinic.io    / BradyPass1
+    mary@example.io       / MaryPass1
+    john@example.io       / JohnPass1
+    siobhan@example.io    / SiobhanPass1
+    david@example.io      / DavidPass1
+
+----------------------------------------------------------------
+STEP 3 - Frontend: install & run
+----------------------------------------------------------------
+cd frontend
+npm install
+npm run dev           # starts React dev server at http://localhost:5173
+
+  Open: http://localhost:5173
+  (Backend must be running on :4000; CORS already allows :5173.)
+
+----------------------------------------------------------------
+ONE-COMMAND LAUNCHER (root level)
+---------------------------------------------------------------
+From the project ROOT (C:\Users\...\AWT) you can run BOTH servers with
+a single command instead of two terminals:
+
+  npm install                        # once: installs 'concurrently' at root
+  npm run dev                        # starts backend (:4000) + frontend (:5173) together
+
+Other root shortcuts:
+  npm run dev:server     # backend only
+  npm run dev:client     # frontend only
+  npm run install:all    # npm install for both backend/ and frontend/
+  npm run build          # backend typecheck + frontend production build
+  npm run test           # backend test suite
+  npm run test:concurrency
+  npm run seed
+
+Ctrl+C stops both simultaneously (concurrently forwards the signal).
+
+NOTE: the shortcut still needs MongoDB replica set running + backend .env
+(as covered in STEP 1), since the backend must connect to the DB.
+
+---------------------------------------------------------------
+STEP 4 - Run the test suites
+----------------------------------------------------------------
+Backend tests (unit + integration, in-memory replica set - NO live DB needed):
+  cd backend
+  npm test
+
+Type check:
+  npm run typecheck        # same as npm run lint (the gate)
+
+Concurrency race test (50 simultaneous bookings -> exactly 1 succeeds):
+  Requires the API running (npm run dev) + MongoDB replica set.
+  cd backend
+  npm run test:concurrency
+
+----------------------------------------------------------------
+QUICK VERDICT COMMANDS (copy/paste)
+----------------------------------------------------------------
+  # 1. backend tests
+  cd backend; npm test
+
+  # 2. backend typecheck
+  cd backend; npm run typecheck
+
+  # 3. BOTH dev servers in ONE command (run from project root)
+  npm install; npm run dev
+
+  # 4. (or run them separately - each in its own terminal, leave running)
+  cd backend; npm run dev
+  cd frontend; npm run dev
+
+  # 5. frontend production build
+  cd frontend; npm run build
+
+  # 6. concurrency proof (needs server + replica set up)
+  cd backend; npm run test:concurrency

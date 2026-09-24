@@ -1,0 +1,19 @@
+Here's the txt:
+CLINIC BOOKING - SEEDED LOGIN CREDENTIALS
+=========================================
+
+ADMIN
+  admin@clinic.io          / AdminPass123
+
+RECEPTIONIST
+  reception@clinic.io      / RecepPass123
+
+DOCTORS
+  dr.nolan@clinic.io       / NolanPass1      (Dr. Aoife Nolan)
+  dr.brady@clinic.io       / BradyPass1      (Dr. Tom Brady)
+
+PATIENTS
+  mary@example.io          / MaryPass1       (Mary Murphy)
+  john@example.io          / JohnPass1       (John Doherty)
+  siobhan@example.io       / SiobhanPass1    (Siobhan Casey)
+  david@example.io         / DavidPass1      (David Byrne)

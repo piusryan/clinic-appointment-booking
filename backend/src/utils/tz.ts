@@ -73,7 +73,13 @@ export function dayStartUtc(date: string, tz: string): Date {
 
 /** Weekday (0-6) of a calendar date, in the clinic zone. */
 export function weekdayOf(date: string, tz: string): number {
-  return dayStartUtc(date, tz).getUTCDay();
+  void tz;
+  // Derive from the calendar date itself, not from the day-start UTC instant.
+  // For zones ahead of UTC the day start lands on the previous UTC day
+  // (Europe/Dublin Mon 00:00 == Sun 23:00Z), which would shift the weekday.
+  const b = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!b) throw new Error(`Invalid date: ${date}`);
+  return new Date(Date.UTC(Number(b[1]), Number(b[2]) - 1, Number(b[3]))).getUTCDay();
 }
 
 /** Format a UTC instant as "YYYY-MM-DD" in `tz`. */

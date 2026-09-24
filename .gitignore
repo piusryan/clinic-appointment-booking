@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment (real secrets never committed)
+.env
+.env.local
+.env.*.local
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Runtime
+backend.log
+frontend.log
+test-output.log
+
+# Internal tooling
+.kiro/
