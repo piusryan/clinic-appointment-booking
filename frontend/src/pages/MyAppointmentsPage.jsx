@@ -1,28 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { appointmentsApi, doctorsApi, api } from '../api/client.js';
+import { appointmentsApi, doctorsApi, CLINICIAN_TRANSITIONS } from '../api/client.js';
 import { useAuth } from '../auth/useAuth.js';
 import Spinner from '../components/Spinner.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { localDateKey, dateTimeLabel, timeLabel } from '../lib/dates';
 
 /**
  * Role-adaptive "my appointments":
  *  - patient: own bookings with cancel + reschedule
  *  - doctor: their own schedule (patients named) with complete / no-show
  *  - admin/receptionist: everything, filterable by patient (id)
+ *
+ * The clinician buttons are built from CLINICIAN_TRANSITIONS, the same closed
+ * set the route's enum rule enforces, so this page cannot offer a transition
+ * the server answers with a 400.
  */
+const TRANSITION_LABELS = { completed: 'Mark complete', 'no-show': 'No-show' };
+const TRANSITION_TOAST = { completed: 'Marked complete', 'no-show': 'Marked no-show' };
+
 export default function MyAppointmentsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState(null);
-  const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // localDateKey(), never new Date().toISOString().slice(0,10): toISOString
+  // converts to UTC, so a user east of Greenwich opening this page late in the
+  // evening would be looking at tomorrow's schedule, and a user west of it
+  // would be looking at a date that has not started in Dublin yet.
+  const [scheduleDate, setScheduleDate] = useState(() => localDateKey());
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
   // Reschedule flow
   const [reschedId, setReschedId] = useState(null);
-  const [reschedDate, setReschedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reschedDate, setReschedDate] = useState(() => localDateKey());
   const [reschedSlots, setReschedSlots] = useState(null);
   const [pickedSlot, setPickedSlot] = useState(null);
   const [reschedBusy, setReschedBusy] = useState(false);
@@ -64,12 +76,12 @@ export default function MyAppointmentsPage() {
     }
   };
 
-  const setStatus = async (id, status, label) => {
+  const setStatus = async (id, status) => {
     setBusyId(id);
     setError(null);
     try {
-      await api(`/appointments/${id}/status`, { method: 'PATCH', body: { status } });
-      toast(label, 'success');
+      await appointmentsApi.status(id, status);
+      toast(TRANSITION_TOAST[status], 'success');
       await load();
     } catch (err) {
       setError(err.message);
@@ -148,7 +160,7 @@ export default function MyAppointmentsPage() {
   if (error) return <ErrorBanner error={error} onDismiss={() => setError(null)} />;
   if (!rows) return <Spinner label="Loading…" />;
 
-  const fmt = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  const fmt = (iso) => dateTimeLabel(iso);
   const statusClass = (s) => `pill pill-${s}`;
   const reschedAppt = rows.find((r) => r.id === reschedId);
 
@@ -211,14 +223,17 @@ export default function MyAppointmentsPage() {
                   </>
                 ) : null}
                 {user.role === 'doctor' && a.status === 'booked' ? (
-                  <>
-                    <button className="btn btn-sm" type="button" disabled={busyId === a.id} onClick={() => setStatus(a.id, 'completed', 'Marked complete')}>
-                      Mark complete
+                  CLINICIAN_TRANSITIONS.map((transition) => (
+                    <button
+                      key={transition}
+                      className={transition === 'no-show' ? 'btn btn-sm btn-ghost' : 'btn btn-sm'}
+                      type="button"
+                      disabled={busyId === a.id}
+                      onClick={() => setStatus(a.id, transition)}
+                    >
+                      {TRANSITION_LABELS[transition]}
                     </button>
-                    <button className="btn btn-sm btn-ghost" type="button" disabled={busyId === a.id} onClick={() => setStatus(a.id, 'no-show', 'Marked no-show')}>
-                      No-show
-                    </button>
-                  </>
+                  ))
                 ) : null}
               </div>
 
@@ -256,9 +271,7 @@ export default function MyAppointmentsPage() {
                               disabled={taken}
                               onClick={() => setPickedSlot(slot)}
                             >
-                              <span className="slot-time">
-                                {new Date(slot.startsAt).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                              <span className="slot-time">{timeLabel(slot.startsAt)}</span>
                             </button>
                           </li>
                         );

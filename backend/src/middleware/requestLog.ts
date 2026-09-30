@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
+import { config } from '../config';
 
 const SENSITIVE_KEYS = new Set(['password', 'passwordHash', 'newPassword', 'currentPassword']);
-const SENSITIVE_HEADERS = new Set(['authorization', 'cookie']);
 
 function redactBody(body: Record<string, unknown> | undefined): Record<string, unknown> {
   if (!body || typeof body !== 'object') return {};
@@ -14,27 +14,30 @@ function redactBody(body: Record<string, unknown> | undefined): Record<string, u
 }
 
 /**
- * Request logger. Two deliberate choices:
- *  - we log the method/path/status/duration only — never bodies, and
- *    never the Authorization header or cookie header, so tokens and
- *    passwords cannot appear in logs (SECURITY.md: automatic deduction).
- *  - a per-request id is echoed back in an X-Request-Id response header so
- *    the frontend can correlate a failure with server-side logs.
+ * Request logger. Three deliberate choices:
+ *  - we log the method/path/status/duration only — never the Authorization or
+ *    Cookie headers, and any body goes through `redactBody` first, so tokens
+ *    and passwords cannot appear in logs (SECURITY.md).
+ *  - an inbound `X-Request-Id` is honoured so a trace survives across a proxy
+ *    or gateway, and every request gets a fresh id when one is not supplied.
+ *  - that id is echoed back in an `X-Request-Id` response header (toggle with
+ *    X_REQUEST_ID_ON) so a user-visible failure can be matched to the exact
+ *    server-side log line.
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
-  const id = randomUUID();
+  const inbound = req.get('X-Request-Id');
+  const id = inbound && inbound.length <= 128 ? inbound : randomUUID();
   req.requestId = id;
+  if (config.requestIdHeader) res.setHeader('X-Request-Id', id);
+
   const started = Date.now();
 
   res.on('finish', () => {
     const ms = Date.now() - started;
-    // A compact single line. If we ever add the body it MUST go through
-    // redactBody — the passwords above are adamantly excluded.
     console.log(
-      `${id} ${req.method} ${req.originalUrl} -> ${res.statusCode} ${ms}ms ${JSON.stringify(redactBody(req.body))}`
+      `${id} ${req.method} ${req.originalUrl} -> ${res.statusCode} ${ms}ms ${JSON.stringify(redactBody(req.body as Record<string, unknown> | undefined))}`
     );
   });
 
   next();
 }
-export const sensitiveHeaders = SENSITIVE_HEADERS;

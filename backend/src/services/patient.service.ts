@@ -1,7 +1,8 @@
-import mongoose, { type Types } from 'mongoose';
+import { type Types } from 'mongoose';
 import Patient from '../models/patient.model';
 import User from '../models/user.model';
 import { notFound, conflict, unprocessable } from '../utils/errors';
+import { withTransaction } from '../utils/transaction';
 import { passwordStrength } from './auth.service';
 import type { CreatePatientPayload, PatientDTO, UpdatePatientPayload } from '../../../shared/types';
 
@@ -44,33 +45,33 @@ export async function getPatient(id: Id): Promise<PatientDTO> {
 
 /** Admin creates a patient; credentials optional but seeded patients get them. */
 export async function createPatient(payload: CreatePatientPayload): Promise<PatientDTO> {
-  const session = await mongoose.startSession();
-  try {
-    let created: Awaited<ReturnType<typeof Patient.create>>[0];
-    await session.withTransaction(async () => {
-      if (payload.email) {
-        const weak = passwordStrength(payload.password ?? '');
-        if (weak) throw unprocessable(weak);
-        if (await User.exists({ email: payload.email.toLowerCase() })) throw conflict('That email is already in use');
+  const created = await withTransaction(async (session) => {
+    if (payload.email) {
+      const weak = passwordStrength(payload.password ?? '');
+      if (weak) throw unprocessable(weak);
+      if (await User.exists({ email: payload.email.toLowerCase() }).session(session)) {
+        throw conflict('That email is already in use');
       }
-      if (await Patient.exists({ phone: payload.phone })) throw conflict('That phone is already in use');
+    }
+    if (await Patient.exists({ phone: payload.phone }).session(session)) {
+      throw conflict('That phone is already in use');
+    }
 
-      const user = payload.email && payload.password
-        ? await User.create({ email: payload.email, passwordHash: payload.password, role: 'patient' })
-        : null;
+    const [user] = payload.email && payload.password
+      ? await User.create([{ email: payload.email, passwordHash: payload.password, role: 'patient' as const }], { session })
+      : [null];
 
-      const doc = new Patient({ name: payload.name, phone: payload.phone, user: user?._id });
-      await doc.save({ session });
-      if (user) {
-        user.patient = doc._id;
-        await user.save({ session });
-      }
-      created = doc;
-    });
-    return toPatientDTO(created!);
-  } finally {
-    await session.endSession();
-  }
+    const [doc] = await Patient.create(
+      [{ name: payload.name, phone: payload.phone, user: user?._id }],
+      { session }
+    );
+    if (user) {
+      user.patient = doc._id;
+      await user.save({ session });
+    }
+    return doc;
+  });
+  return toPatientDTO(created);
 }
 
 export async function updatePatient(id: Id, payload: UpdatePatientPayload): Promise<PatientDTO> {

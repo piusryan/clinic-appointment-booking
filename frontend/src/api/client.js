@@ -2,6 +2,11 @@
  * api/client.js — THE single data layer. Components never call fetch();
  * every request in the app goes through here (module 9 deliverable).
  *
+ * The endpoint surface, the role list and the status codes all come from
+ * shared/types.ts. That file is the one place the API is described, so a role
+ * or status the UI offers that the server does not accept is a compile error
+ * rather than a 400 discovered by a user.
+ *
  * Token story (see DESIGN.md for the argument):
  *   - the refresh token lives in an httpOnly cookie the server sets; JS can
  *     never read it, so an XSS cannot exfiltrate it.
@@ -10,6 +15,10 @@
  *   - on app boot (and on any 401) we call /auth/refresh once and retry the
  *     original request transparently. Components never see this dance.
  */
+
+import { ROLES, APPOINTMENT_STATUS, HTTP, CLINICIAN_TRANSITIONS } from '../../../shared/types';
+
+export { ROLES, APPOINTMENT_STATUS, HTTP, CLINICIAN_TRANSITIONS };
 
 export const API_BASE = (import.meta.env.VITE_API_BASE ?? 'http://localhost:4000') + '/api';
 
@@ -108,10 +117,17 @@ export const doctorsApi = {
 
 export const appointmentsApi = {
   list: () => api('/appointments'),
+  get: (id) => api(`/appointments/${id}`),
   book: (doctorId, patientId, startsAt) =>
     api('/appointments', { method: 'POST', body: { doctorId, patientId, startsAt } }),
   cancel: (id) => api(`/appointments/${id}/cancel`, { method: 'PATCH' }),
   reschedule: (id, newStartsAt) => api(`/appointments/${id}/reschedule`, { method: 'PATCH', body: { newStartsAt } }),
+  /**
+   * Close out a visit. `status` is one of CLINICIAN_TRANSITIONS, taken from the
+   * shared contract — the same closed set the route's enum rule enforces, so
+   * the UI cannot offer a value the server will reject with a 400.
+   */
+  status: (id, status) => api(`/appointments/${id}/status`, { method: 'PATCH', body: { status } }),
 };
 
 export const patientsApi = {
@@ -123,7 +139,14 @@ export const patientsApi = {
 };
 
 export const holidaysApi = {
-  list: () => api('/holidays'),
+  /**
+   * `doctorId` WIDENS rather than narrows: asking for one doctor returns their
+   * own closures plus every clinic-wide one, because a clinic holiday is also
+   * that doctor's day off. Hiding it would be the bug.
+   */
+  list: (params = {}) => api(`/holidays?${new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  )}`),
   create: (date, doctorId) => api('/holidays', { method: 'POST', body: { date, ...(doctorId ? { doctorId } : {}) } }),
   remove: (id) => api(`/holidays/${id}`, { method: 'DELETE' }),
 };

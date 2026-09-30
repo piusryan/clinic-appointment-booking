@@ -126,8 +126,18 @@ export interface ReschedulePayload {
   newStartsAt: string; // ISO UTC start of the new slot
 }
 
+/** The two transitions a clinician may perform. Anything else is a 400. */
+export const CLINICIAN_TRANSITIONS = ['completed', 'no-show'] as const;
+export type ClinicianTransition = (typeof CLINICIAN_TRANSITIONS)[number];
+
+export interface SetStatusPayload {
+  status: ClinicianTransition;
+}
+
 export interface HolidayPayload {
   date: string; // YYYY-MM-DD
+  /** Omit for a clinic-wide closure; set for one doctor's day off. */
+  doctorId?: string;
 }
 
 export interface ErrorDTO {

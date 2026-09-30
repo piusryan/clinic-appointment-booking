@@ -35,9 +35,25 @@ export const isIsoDate = (field: string): Rule =>
     typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? undefined : `${field} must be an ISO datetime`
   );
 
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** True only for a real calendar date: 2026-02-30 and 2026-13-45 are rejected. */
+function isRealCalendarDate(value: string): boolean {
+  const m = ISO_DATE.exec(value);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  // Round-trip through UTC: Date normalises 2026-02-30 to 2026-03-02, so a
+  // mismatch is exactly the "this day does not exist" case.
+  const probe = new Date(Date.UTC(y, month - 1, day));
+  return probe.getUTCFullYear() === y && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day;
+}
+
 export const isCalendarDate = (field: string): Rule =>
   fieldRule(field, (v) =>
-    typeof v === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.test(v) ? undefined : `${field} must be a YYYY-MM-DD date`
+    typeof v === 'string' && isRealCalendarDate(v) ? undefined : `${field} must be a YYYY-MM-DD date`
   );
 
 export const isObjectId = (field: string): Rule =>

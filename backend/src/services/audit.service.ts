@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import AuditLog from '../models/audit.model';
+import User from '../models/user.model';
 import type { RequestUser } from '../types/auth.types';
 
 /**
@@ -93,5 +94,26 @@ export async function listAudits(input: {
     createdAt: d.createdAt ? new Date(d.createdAt).toISOString() : new Date().toISOString(),
   }));
 
-  return { logs, total, page, pages: Math.max(1, Math.ceil(total / perPage)) };
+  return {
+    logs: await withActorEmails(logs),
+    total,
+    page,
+    pages: Math.max(1, Math.ceil(total / perPage)),
+  };
+}
+
+/**
+ * Actor emails, resolved in ONE query and only for the actors on this page.
+ *
+ * This join lives in the service, not the controller: it is a Mongoose query,
+ * and the layering contract says controllers never build one. The projection
+ * is `email` alone — a trail viewer gets an address, never a role-changeable
+ * credential surface.
+ */
+async function withActorEmails(logs: AuditLogView[]): Promise<AuditLogView[]> {
+  const actorIds = [...new Set(logs.map((l) => l.actorId))];
+  if (actorIds.length === 0) return logs;
+  const users = await User.find({ _id: { $in: actorIds } }).select('email').lean();
+  const emailBy = new Map(users.map((u) => [String(u._id), String(u.email)]));
+  return logs.map((l) => ({ ...l, actorEmail: emailBy.get(l.actorId) }));
 }

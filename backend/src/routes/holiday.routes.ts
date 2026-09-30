@@ -7,7 +7,16 @@ import { validate, isObjectId, isCalendarDate, bodyHas, optional } from '../midd
 
 const router = Router();
 
-router.get('/', authenticate, authorize('admin', 'receptionist'), validate('query', optional(isCalendarDate('from')), optional(isCalendarDate('to'))), asyncHandler(ctrl.index));
+// `doctorId` is a filter that reaches Mongoose, so it gets the same 24-hex
+// treatment as a path param: without it a crafted `?doctorId={$ne:null}` would
+// be cast by the driver rather than rejected at the edge with a 400.
+router.get(
+  '/',
+  authenticate,
+  authorize('admin', 'receptionist'),
+  validate('query', optional(isObjectId('doctorId')), optional(isCalendarDate('from')), optional(isCalendarDate('to'))),
+  asyncHandler(ctrl.index)
+);
 router.post('/', authenticate, authorize('admin'), validate('body', bodyHas(['date']), isCalendarDate('date')), asyncHandler(ctrl.create));
 router.delete('/:id', authenticate, authorize('admin'), validate('params', isObjectId('id')), asyncHandler(ctrl.remove));
 

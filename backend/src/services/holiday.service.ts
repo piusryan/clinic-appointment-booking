@@ -9,7 +9,7 @@ export function calendarDate(date: string): Date {
 }
 
 /** For a clinic-wide closure omit doctorId (null). */
-export async function addHoliday(input: { doctorId?: string | null; date: string }): Promise<{ id: string; date: string }> {
+export async function addHoliday(input: { doctorId?: string | null; date: string }): Promise<{ id: string; date: string; doctor: string | null }> {
   const date = calendarDate(input.date);
   // Explicit guard so a duplicate closure is always a clean 409 regardless of
   // how the unique index treats null doctor values (Mongo treats multiple
@@ -20,7 +20,9 @@ export async function addHoliday(input: { doctorId?: string | null; date: string
 
   try {
     const doc = await Holiday.create({ doctor: input.doctorId ?? null, date });
-    return { id: String(doc._id), date: input.date };
+    // Echoed exactly as listHolidays reports it, so a client can render a
+    // create response and a later list response from one shape.
+    return { id: String(doc._id), date: input.date, doctor: doc.doctor ? String(doc.doctor) : null };
   } catch (err) {
     if ((err as { code?: number }).code === 11000) throw conflict('A holiday already covers that date');
     throw err;

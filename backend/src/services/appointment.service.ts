@@ -1,19 +1,11 @@
-import mongoose, { type ClientSession, type Types } from 'mongoose';
+import mongoose, { type Types } from 'mongoose';
 import Appointment, { type Appointment as AppointmentAttrs } from '../models/appointment.model';
 import Doctor from '../models/doctor.model';
 import Patient from '../models/patient.model';
 import { notFound, conflict, unprocessable, badRequest } from '../utils/errors';
-import { isDerivableSlot, dateKeyOf } from './slot.service';
+import { withTransaction } from '../utils/transaction';
+import { isDerivableSlot, dateKeyOf, isHoliday } from './slot.service';
 import type { RequestUser } from '../types/auth.types';
-
-async function withTransaction<T>(fn: (session: ClientSession) => Promise<T>): Promise<T> {
-  const session = await mongoose.startSession();
-  try {
-    return (await session.withTransaction(() => fn(session))) as T;
-  } finally {
-    await session.endSession();
-  }
-}
 
 function isDupKey(err: unknown): boolean {
   return (err as { code?: number }).code === 11000;
@@ -34,12 +26,25 @@ export interface AppointmentView {
   status: string;
 }
 
-// HACK: the type gymnastics here are because mongoose populate types are a mess
-// TODO: replace with a proper projection + types once we upgrade mongoose
-function toView(row: AppointmentAttrs & { doctor: { _id: Types.ObjectId; name: string; speciality: string; slotMinutes: number }; patient?: { _id: Types.ObjectId; name: string; phone: string } }): AppointmentView {
-  const r = row as unknown as { _id: Types.ObjectId };
+/**
+ * Mongoose's `populate()` types are not expressible in the overloads, so the
+ * populated shape is declared once here — the single place in the codebase
+ * that knows what a populated appointment looks like. The controller imports
+ * `AppointmentView` and never rebuilds it.
+ */
+type PopulatedAppointment = AppointmentAttrs & {
+  _id: Types.ObjectId;
+  doctor: { _id: Types.ObjectId; name: string; speciality: string; slotMinutes: number };
+  patient?: { _id: Types.ObjectId; name: string; phone: string };
+};
+
+/** Doctor + patient name/phone only — no address book, no credentials. */
+const DOCTOR_FIELDS = 'name speciality slotMinutes';
+const PATIENT_FIELDS = 'name phone';
+
+function toView(row: PopulatedAppointment): AppointmentView {
   return {
-    id: String(r._id),
+    id: String(row._id),
     doctor: {
       id: String(row.doctor._id),
       name: row.doctor.name,
@@ -53,6 +58,13 @@ function toView(row: AppointmentAttrs & { doctor: { _id: Types.ObjectId; name: s
     endsAt: new Date(row.endsAt),
     status: row.status,
   };
+}
+
+/** The one read path every appointment-shaped response goes through. */
+async function loadPopulated(id: string): Promise<PopulatedAppointment> {
+  const row = await Appointment.findById(id).populate('doctor', DOCTOR_FIELDS).populate('patient', PATIENT_FIELDS);
+  if (!row) throw notFound('Appointment not found');
+  return row as unknown as PopulatedAppointment;
 }
 
 export async function bookAppointment(input: {
@@ -72,6 +84,13 @@ export async function bookAppointment(input: {
     throw unprocessable('That time is outside the doctor\'s working hours', 'Pick a slot from the availability grid');
   }
 
+  // The grid hides closures, but the grid is a convenience, not a control. A
+  // direct API call can name any timestamp, so the write path re-checks the
+  // closure itself — otherwise "the doctor is off" is enforced only in the UI.
+  if (await isHoliday(String(doctor._id), date)) {
+    throw unprocessable('The doctor is closed on that date', 'Pick a date from the availability grid');
+  }
+
   const created = await withTransaction(async (session) => {
     const taken = await Appointment.exists({ doctor: doctor._id, startsAt: want, status: 'booked' }).session(session);
     if (taken) throw conflict('That slot was taken while you were deciding');
@@ -85,24 +104,26 @@ export async function bookAppointment(input: {
       [{ doctor: doctor._id, patient: patientId, startsAt: want, endsAt, status: 'booked' }],
       { session }
     );
-    // funny: populate called twice. doc is a single subdoc from create(array),
-    // mongoose 7 types get confused — leaving as-is, it works
-    await doc.populate('doctor', 'name speciality slotMinutes slotMinutes');
-    await doc.populate('patient', 'name phone');
+    await doc.populate('doctor', DOCTOR_FIELDS);
+    await doc.populate('patient', PATIENT_FIELDS);
     return doc;
   }).catch((err: unknown) => {
     if (isDupKey(err)) throw conflict('That slot was taken by someone else — exactly one booking survives');
     throw err;
   });
 
-  return toView(created as unknown as Parameters<typeof toView>[0]);
+  return toView(created as unknown as PopulatedAppointment);
 }
 
 export async function setAppointmentStatus(id: string, status: 'completed' | 'no-show'): Promise<void> {
   await withTransaction(async (session) => {
     const appt = await Appointment.findOne({ _id: id }).session(session);
     if (!appt) throw notFound('Appointment not found');
-    if (appt.status !== 'booked') throw conflict('Only a booked appointment can be marked');
+    // 422, not 409: this is the state-machine rule, not a race. 409 is
+    // reserved for genuine conflicts (a slot taken mid-transaction, a
+    // duplicate closure) and the same rule already answers 422 in cancel and
+    // reschedule.
+    if (appt.status !== 'booked') throw unprocessable('Only a booked appointment can be marked');
     appt.status = status;
     await appt.save({ session });
   });
@@ -120,7 +141,7 @@ export async function cancelAppointment(id: string): Promise<void> {
   });
 }
 
-export async function rescheduleAppointment(id: string, newStartsAt: string): Promise<void> {
+export async function rescheduleAppointment(id: string, newStartsAt: string): Promise<AppointmentView> {
   const target = new Date(newStartsAt);
   if (Number.isNaN(target.getTime())) throw unprocessable('Invalid newStartsAt');
 
@@ -133,6 +154,10 @@ export async function rescheduleAppointment(id: string, newStartsAt: string): Pr
     const date = dateKeyOf(target);
     if (!isDerivableSlot(doctor, date, target)) {
       throw unprocessable('New time is outside the doctor\'s working hours');
+    }
+    // Same rule as booking: a closure blocks the write, not just the grid.
+    if (await isHoliday(String(appt.doctor), date)) {
+      throw unprocessable('The doctor is closed on that date');
     }
     if (appt.startsAt.getTime() === target.getTime()) {
       throw badRequest('Appointment is already at that time');
@@ -150,6 +175,62 @@ export async function rescheduleAppointment(id: string, newStartsAt: string): Pr
     appt.endsAt = new Date(target.getTime() + doctor.slotMinutes * 60_000);
     await appt.save({ session });
   });
+
+  // The write committed, so re-read once for the response body rather than
+  // re-deriving the view from a partially-populated document.
+  return toView(await loadPopulated(id));
+}
+
+/** Single appointment by id, populated. Used by `GET /api/appointments/:id`. */
+export async function getAppointment(id: string): Promise<AppointmentView & { patientId?: string }> {
+  const row = await loadPopulated(id);
+  const view = toView(row);
+  return { ...view, patientId: row.patient ? String(row.patient._id) : undefined };
+}
+
+export interface AppointmentListQuery {
+  doctorId?: string;
+  patientId?: string;
+  status?: string;
+  from?: string;
+}
+
+/** Hard cap: reception asked for pagination, not yet — see MODULES.md. */
+const LIST_CAP = 100;
+
+/**
+ * Role-based scoping lives HERE, not in the controller. The controller hands
+ * over the actor and the raw (already validated) query values; the service
+ * turns "a patient may only ever see their own rows" into a Mongo filter. A
+ * `if (user.role === ...)` in a controller is a layering violation (DESIGN.md §6).
+ */
+export async function listAppointmentsFor(
+  actor: Pick<RequestUser, 'role' | 'patientId' | 'doctorId'>,
+  query: AppointmentListQuery = {}
+): Promise<AppointmentView[]> {
+  const filter: Record<string, unknown> = {};
+
+  if (actor.role === 'patient') {
+    filter.patient = new mongoose.Types.ObjectId(actor.patientId);
+  } else if (actor.role === 'doctor') {
+    if (!actor.doctorId) return [];
+    filter.doctor = new mongoose.Types.ObjectId(actor.doctorId);
+  } else {
+    // staff may narrow the list, never widen it beyond their own access
+    if (query.doctorId) filter.doctor = new mongoose.Types.ObjectId(query.doctorId);
+    if (query.patientId) filter.patient = new mongoose.Types.ObjectId(query.patientId);
+  }
+
+  if (query.status && query.status !== 'all') filter.status = query.status;
+  if (query.from) filter.startsAt = { $gte: new Date(query.from) };
+
+  const rows = (await Appointment.find(filter)
+    .sort({ startsAt: -1 })
+    .limit(LIST_CAP)
+    .populate('doctor', DOCTOR_FIELDS)
+    .populate('patient', PATIENT_FIELDS)) as unknown as PopulatedAppointment[];
+
+  return rows.map(toView);
 }
 
 export async function getSchedule(doctorId: string, date?: string): Promise<AppointmentView[]> {
@@ -164,7 +245,7 @@ export async function getSchedule(doctorId: string, date?: string): Promise<Appo
     { $match: { status: { $ne: 'cancelled' } } },
     { $sort: { startsAt: 1 } },
   ]);
-  return (rows as unknown as Array<Parameters<typeof toView>[0]>).map(toView);
+  return (rows as unknown as PopulatedAppointment[]).map(toView);
 }
 
 function rangeMatch(date: string): Record<string, unknown> {

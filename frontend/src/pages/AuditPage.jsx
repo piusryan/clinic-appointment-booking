@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { auditApi } from '../api/client.js';
+import { auditApi, ROLES } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
 const ACTIONS = ['appointment.read', 'schedule.read', 'patient.read', 'slots.read'];
-const ROLES = ['patient', 'doctor', 'receptionist', 'admin'];
 const PER_PAGE = 25;
 
 /** Admin-only audit-trail viewer with role/action filters and pagination. */

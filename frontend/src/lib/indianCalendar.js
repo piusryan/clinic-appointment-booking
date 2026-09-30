@@ -6,7 +6,21 @@
  *  2. Festivals/occasions are a curated YYYY-MM-DD table (lunar dates move
  *     year by year; the entries below are the 2026 observed dates, and the
  *     fixed national holidays repeat every year).
+ *
+ * SCOPE. These are DISPLAY annotations on top of the Gregorian availability
+ * grid, never a source of truth: the server derives and validates slots in
+ * Gregorian time and knows nothing about Saka dates or festivals. A festival
+ * here does not close the clinic — an admin records that as a Holiday row
+ * (doctor-scoped or clinic-wide) and the grid empties for real. Keeping the
+ * two apart is why a wrong lunar date can never produce a wrong booking, and
+ * why this table being incomplete for 2027 degrades to a missing caption
+ * rather than to a double-booked chair.
+ *
+ * All date parsing delegates to lib/dates.js, which owns the
+ * local-vs-UTC rule for the whole app.
  */
+
+import { localDateKey, localMonthKey, parseIsoDateNoon } from './dates';
 
 const SAKA_LONG = new Intl.DateTimeFormat('en-IN', {
   calendar: 'indian',
@@ -23,12 +37,18 @@ const SAKA_MONTH = new Intl.DateTimeFormat('en-IN', {
 });
 
 const pad = (n) => String(n).padStart(2, '0');
-export const toISODate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/**
+ * Kept as a name because several pages read better with it, but it is now an
+ * alias of the one sanctioned local-date helper rather than a second
+ * implementation that could drift.
+ */
+export const toISODate = localDateKey;
 
 let sakaCache = new Map();
 export function sakaCaption(dateStr) {
   if (sakaCache.has(dateStr)) return sakaCache.get(dateStr);
-  const probe = new Date(`${dateStr}T12:00:00`);
+  const probe = parseIsoDateNoon(dateStr);
   if (Number.isNaN(probe.getTime())) return '';
   const parts = SAKA_LONG.formatToParts(probe);
   const day = parts.find((p) => p.type === 'day')?.value ?? '';
@@ -43,15 +63,11 @@ export function sakaShort(dateStr) {
 }
 
 export function sakaYearLabel(dateStr) {
-  const probe = new Date(`${dateStr.slice(0, 7)}-15T12:00:00`);
-  if (Number.isNaN(probe.getTime())) return '';
-  return SAKA_YEAR.format(probe);
+  return SAKA_YEAR.format(parseIsoDateNoon(`${dateStr.slice(0, 7)}-15`));
 }
 
 export function sakaMonthName(dateStr) {
-  const probe = new Date(`${dateStr.slice(0, 7)}-15T12:00:00`);
-  if (Number.isNaN(probe.getTime())) return '';
-  return SAKA_MONTH.format(probe);
+  return SAKA_MONTH.format(parseIsoDateNoon(`${dateStr.slice(0, 7)}-15`));
 }
 
 /** Fixed civil holidays that fall on the same Gregorian date every year. */
@@ -107,18 +123,25 @@ export function indianOccasions(dateStr) {
 }
 
 export function monthCaption(monthStr) {
-  const probe = new Date(`${monthStr}-15T12:00:00`);
+  const probe = parseIsoDateNoon(`${monthStr}-15`);
   const greg = probe.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
   const saka = SAKA_MONTH.format(probe);
   const sakaYear = SAKA_YEAR.format(probe);
   return { greg, saka, sakaYear };
 }
 
+/**
+ * Month arithmetic in UTC on purpose: a month boundary is not a local-time
+ * event, and doing it in local time can land on 30 Feb when stepping back from
+ * 31 March in a zone with a DST change in the window.
+ */
 export function addMonths(monthStr, delta) {
   const [y, m] = monthStr.split('-').map(Number);
   const d = new Date(Date.UTC(y, m - 1, 1));
   d.setUTCMonth(d.getUTCMonth() + delta);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
 }
+
+export { localMonthKey };
 
 export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

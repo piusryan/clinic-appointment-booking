@@ -10,7 +10,12 @@
     "dev:client": "npm --prefix frontend run dev",
     "build": "npm --prefix backend run typecheck && npm --prefix frontend run build",
     "test": "npm --prefix backend run test",
+    "test:frontend": "npm --prefix frontend run test",
+    "test:timezones": "npm --prefix frontend run test:timezones",
+    "test:naive": "npm --prefix backend run test:naive",
     "test:concurrency": "npm --prefix backend run test:concurrency",
+    "test:idor": "npm --prefix backend test -- idor",
+    "verify": "npm run typecheck && npm run test && npm run test:frontend && npm run build",
     "typecheck": "npm --prefix backend run typecheck",
     "seed": "npm --prefix backend run seed"
   },

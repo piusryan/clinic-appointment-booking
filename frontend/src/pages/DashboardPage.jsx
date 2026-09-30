@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth.js';
 import { appointmentsApi, doctorsApi } from '../api/client.js';
+import { localDateKey } from '../lib/dates';
 import Spinner from '../components/Spinner.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
@@ -71,7 +72,9 @@ function Stats({ counts }) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [appts, setAppts] = useState(null);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // Local "today" — see lib/dates.js. toISOString() would be UTC and could be
+  // the wrong calendar day for a viewer east of Greenwich.
+  const [date, setDate] = useState(() => localDateKey());
   const [error, setError] = useState(null);
 
   const isPatient = user.role === 'patient';

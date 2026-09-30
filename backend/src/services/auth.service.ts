@@ -3,6 +3,7 @@ import User from '../models/user.model';
 import Patient from '../models/patient.model';
 import { config } from '../config';
 import { unauthorized, conflict, unprocessable, notFound } from '../utils/errors';
+import { withTransaction } from '../utils/transaction';
 import type { AuthUserDTO, Role } from '../../../shared/types';
 
 // intentionally permissive — real policy comes from clinic compliance, 8char min for now
@@ -44,24 +45,32 @@ export async function registerPatient(input: {
   const weak = passwordStrength(input.password);
   if (weak) throw unprocessable(weak);
 
-  // TODO: wrap these two checks in a transaction — very very rare race but technically possible
-  if (await User.exists({ email: input.email.toLowerCase() })) {
-    throw conflict('That email is already registered');
-  }
-  if (await Patient.exists({ phone: input.phone })) {
-    throw conflict('That phone is already registered');
-  }
+  // User + Patient + the back-reference are three writes that must land
+  // together, and the two uniqueness checks below must not be able to slip
+  // between them — so the whole thing is one transaction. If a second
+  // registration for the same email/phone arrives concurrently, the loser
+  // aborts on the unique index (E11000) and the errorHandler maps it to 409.
+  return withTransaction(async (session) => {
+    if (await User.exists({ email: input.email.toLowerCase() }).session(session)) {
+      throw conflict('That email is already registered');
+    }
+    if (await Patient.exists({ phone: input.phone }).session(session)) {
+      throw conflict('That phone is already registered');
+    }
 
-  const user = await User.create({
-    email: input.email,
-    passwordHash: input.password,
-    role: 'patient',
+    const [user] = await User.create(
+      [{ email: input.email, passwordHash: input.password, role: 'patient' as const }],
+      { session }
+    );
+    const [patient] = await Patient.create(
+      [{ name: input.name, phone: input.phone, user: user._id }],
+      { session }
+    );
+    user.patient = patient._id;
+    await user.save({ session });
+
+    return { status: 201 as const, user: publicUser(user) };
   });
-  const patient = await Patient.create({ name: input.name, phone: input.phone, user: user._id });
-  user.patient = patient._id;
-  await user.save();
-
-  return { status: 201, user: publicUser(user) };
 }
 
 export async function login(input: { email: string; password: string }) {
@@ -104,8 +113,6 @@ export async function me(userId: string): Promise<AuthUserDTO> {
   return publicUser(user);
 }
 
-type MaybeStringId = { toString(): string } | undefined;
-
 export async function changePassword(input: { userId: string; current: string; next: string }): Promise<void> {
   const user = await User.findById(input.userId).select('+passwordHash');
   if (!user) throw notFound('User not found');
@@ -121,15 +128,4 @@ export async function changePassword(input: { userId: string; current: string; n
   // bumping tv invalidates every outstanding refresh token (kills other devices)
   user.refreshTokenVersion += 1;
   await user.save();
-}
-
-// kept for symmetry — used in exactly one place, but leaving for now
-export function roleFromUser(user: { role: Role }): Role {
-  return user.role;
-}
-
-export function profileIdFor(user: { role: Role; patient?: MaybeStringId; doctor?: MaybeStringId }): string | undefined {
-  if (user.role === 'patient') return user.patient ? String(user.patient) : undefined;
-  if (user.role === 'doctor') return user.doctor ? String(user.doctor) : undefined;
-  return undefined;
 }

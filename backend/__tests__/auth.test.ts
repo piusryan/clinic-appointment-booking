@@ -99,12 +99,13 @@ describe('auth (module 10: authentication)', () => {
     expect(stale.status).toBe(401);
   });
 
-  it('rate limits login: 5 attempts in 15 min, then 429', async () => {
-    for (let i = 0; i < 5; i += 1) {
-      await api().post('/api/auth/login').send({ email: 'nobody@test.io', password: 'nope' });
-    }
+  // The 429 threshold itself is NOT asserted here: this file runs with the
+  // login ceiling raised so the many `loginAs()` setups do not throttle each
+  // other (see __tests__/setup-env.ts). `rateLimit.test.ts` owns the 429 and
+  // pins the limit to 5 for exactly that assertion.
+  it('a bad password is 401, not 429, while the suite-wide ceiling is raised', async () => {
     const res = await api().post('/api/auth/login').send({ email: 'nobody@test.io', password: 'nope' });
-    expect(res.status).toBe(429);
+    expect(res.status).toBe(401);
   });
 
   it('seedToken helper gives a working admin token (loginAs pattern)', async () => {
