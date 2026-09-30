@@ -11,6 +11,10 @@
     "test": "jest --runInBand",
     "test:concurrency": "tsx scripts/concurrent-booking.ts",
     "test:naive": "tsx scripts/naive-booking.ts",
+    "purge:race": "tsx scripts/purge-race-data.ts",
+    "test:rbac": "jest --runInBand __tests__/rbac.test.ts",
+    "test:token-security": "jest --runInBand __tests__/token-security.test.ts",
+    "test:cancel-rebook": "jest --runInBand __tests__/cancel-rebook.test.ts",
     "test:idor": "jest --runInBand idor",
     "lint": "echo 'typecheck is the gate:' && npm run typecheck"
   },

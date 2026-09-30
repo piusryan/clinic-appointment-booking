@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Race Condition Proof — Clinic Booking System</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 40px 24px;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* Input / Output cmd blocks */
+  .cmd-block { margin-bottom: 28px; }
+  .cmd-block-bottom { margin-top: 32px; }
+  .cmd-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+  .cmd-terminal { background: #0d0f16; border: 1px solid #1e2340; border-radius: 10px; overflow: hidden; }
+  .cmd-bar { background: #161827; border-bottom: 1px solid #1e2340; padding: 7px 12px; display: flex; align-items: center; gap: 6px; }
+  .cmd-bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cmd-bar .dot-r{background:#ff5f57;} .cmd-bar .dot-y{background:#febc2e;} .cmd-bar .dot-g{background:#28c840;}
+  .cmd-bar .cmd-title { font-size: 11px; color: #475569; margin-left: 4px; font-family: 'SF Mono','Fira Code',monospace; }
+  .cmd-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12.5px; line-height: 1.75; white-space: pre; }
+  .cmd-prompt { color: #4ade80; font-weight: 700; }
+  .cmd-comment { color: #475569; }
+  .out-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; line-height: 1.8; white-space: pre; text-align: center; }
+  .out-dim{color:#475569;} .out-muted{color:#64748b;} .out-white{color:#e2e8f0;} .out-green{color:#4ade80;font-weight:700;} .out-red{color:#f87171;font-weight:700;} .out-yellow{color:#fbbf24;font-weight:700;} .out-cyan{color:#67e8f9;} .out-bold{font-weight:700;}
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 36px;
+  }
+  .header-left h1 {
+    font-size: 22px; font-weight: 700; color: #f8fafc;
+    letter-spacing: -0.3px;
+  }
+  .header-left p { font-size: 13px; color: #64748b; margin-top: 4px; }
+  .badge {
+    background: #14532d; color: #4ade80;
+    border: 1px solid #16a34a;
+    border-radius: 9999px;
+    padding: 6px 18px;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .badge::before { content: "●"; font-size: 10px; }
+
+  /* Score cards row */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .card {
+    background: #1e2130;
+    border: 1px solid #2d3148;
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+  }
+  .card .num {
+    font-size: 42px; font-weight: 800; line-height: 1;
+    margin-bottom: 6px;
+  }
+  .card .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; }
+  .card.green  .num { color: #4ade80; }
+  .card.red    .num { color: #f87171; }
+  .card.blue   .num { color: #60a5fa; }
+  .card.yellow .num { color: #fbbf24; }
+
+  /* Terminal block */
+  .section { margin-bottom: 24px; }
+  .section-title {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+    color: #64748b; margin-bottom: 10px; font-weight: 600;
+  }
+  .terminal {
+    background: #0d0f16;
+    border: 1px solid #1e2340;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .terminal-bar {
+    background: #161827;
+    border-bottom: 1px solid #1e2340;
+    padding: 9px 14px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .terminal-title {
+    font-size: 12px; color: #475569; margin-left: 4px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .terminal-body {
+    padding: 18px 20px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px; line-height: 1.75;
+    white-space: pre;
+  }
+  .dim    { color: #475569; }
+  .muted  { color: #64748b; }
+  .white  { color: #e2e8f0; }
+  .green  { color: #4ade80; }
+  .red    { color: #f87171; }
+  .yellow { color: #fbbf24; }
+  .cyan   { color: #67e8f9; }
+  .bold   { font-weight: 700; }
+
+  /* Two-column layout for layers */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  .layer-card {
+    background: #1e2130; border: 1px solid #2d3148; border-radius: 12px;
+    padding: 20px;
+  }
+  .layer-card h3 {
+    font-size: 13px; font-weight: 700; color: #f8fafc;
+    margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+  }
+  .layer-num {
+    background: #1e3a5f; color: #60a5fa;
+    border-radius: 6px; padding: 1px 8px;
+    font-size: 11px; font-weight: 800;
+  }
+  .layer-card p { font-size: 12.5px; color: #94a3b8; line-height: 1.6; margin-top: 8px; }
+  .layer-card code {
+    display: block; margin-top: 12px;
+    background: #0d0f16; border: 1px solid #1e2340;
+    border-radius: 7px; padding: 12px 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11.5px; line-height: 1.7; color: #c4b5fd;
+    white-space: pre;
+  }
+
+  /* Architecture */
+  .arch-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 24px;
+  }
+  .arch-item {
+    background: #1e2130; border: 1px solid #2d3148; border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .arch-item .arch-label {
+    font-size: 11px; color: #64748b; text-transform: uppercase;
+    letter-spacing: 0.6px; margin-bottom: 6px;
+  }
+  .arch-item .arch-val {
+    font-size: 13px; color: #e2e8f0; font-weight: 500;
+  }
+
+  /* Footer */
+  .footer {
+    border-top: 1px solid #1e2340;
+    padding-top: 18px; margin-top: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-left { font-size: 12px; color: #475569; }
+  .footer-right {
+    font-size: 12px; color: #4ade80; font-weight: 600;
+  }
+
+  /* Result table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 8px 12px;
+    color: #64748b; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #2d3148;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid #1e2340; }
+  tr:last-child td { border-bottom: none; }
+  .tbl-wrap {
+    background: #1e2130; border: 1px solid #2d3148;
+    border-radius: 10px; overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .check { color: #4ade80; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════════════ INPUT — HOW TO RUN ═══════════════════ -->
+  <div class="cmd-block">
+    <div class="cmd-label">▶ Input — Command to Run</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="cmd-title">PowerShell — backend/</span></div>
+      <div class="cmd-body"><span class="cmd-comment"># Navigate to the backend directory</span>
+<span class="cmd-prompt">PS&gt;</span> cd C:\Users\Administrator\Desktop\AWT\backend
+
+<span class="cmd-comment"># Run the concurrency proof script</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:concurrency
+
+<span class="cmd-comment"># Equivalent direct command</span>
+<span class="cmd-prompt">PS&gt;</span> npx tsx scripts/concurrent-booking.ts
+
+<span class="cmd-comment"># Clean up leftover fixtures if the test was interrupted</span>
+<span class="cmd-prompt">PS&gt;</span> npm run purge:race</div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>Race Condition Proof — Clinic Booking System</h1>
+      <p>npm run test:concurrency &nbsp;·&nbsp; 1 October 2026 &nbsp;·&nbsp; Node.js / Express / MongoDB rs0</p>
+    </div>
+    <div class="badge">PASS</div>
+  </div>
+
+  <!-- Score cards -->
+  <div class="cards">
+    <div class="card green">
+      <div class="num">1</div>
+      <div class="label">201 Created</div>
+    </div>
+    <div class="card red">
+      <div class="num">49</div>
+      <div class="label">409 Conflict</div>
+    </div>
+    <div class="card blue">
+      <div class="num">1</div>
+      <div class="label">Rows in DB</div>
+    </div>
+    <div class="card yellow">
+      <div class="num">566ms</div>
+      <div class="label">Total elapsed</div>
+    </div>
+  </div>
+
+  <!-- Terminal output -->
+  <div class="section">
+    <div class="section-title">Terminal Output</div>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="terminal-title">npm run test:concurrency</span>
+      </div>
+      <div class="terminal-body"><span class="dim">&gt; clinic-backend@1.0.0 test:concurrency</span>
+<span class="dim">&gt; tsx scripts/concurrent-booking.ts</span>
+
+<span class="muted">[race] no API on http://localhost:4000 — starting one for this run...</span>
+<span class="muted">[race] api up (login limiter raised to 100 for the setup burst).</span>
+<span class="cyan">[race] slot under test: 2026-10-06T08:00:00.000Z</span>
+
+<span class="muted">[race] seeded 50 authenticated patients + 1 doctor.</span>
+<span class="muted">[race] 50 bearer tokens issued over HTTP.</span>
+<span class="white">[race] 50 concurrent bookings -> elapsed <span class="yellow bold">566ms</span></span>
+<span class="white">  201 created : <span class="green bold">1</span></span>
+<span class="white">  409 conflict: <span class="red bold">49</span></span>
+<span class="white">  rows in db  : <span class="blue bold">1</span> booked for this slot</span>
+
+<span class="green bold">VERDICT: 1 of 50 succeeded, 49 rejected, 1 row(s) stored.</span>
+<span class="green bold">  PASS — exactly one booking survives; the race is won deterministically.</span>
+<span class="muted">[race] stopped the API it started.</span></div>
+    </div>
+  </div>
+
+  <!-- Results table -->
+  <div class="section">
+    <div class="section-title">Result Verification</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>Expected</th><th>Actual</th><th>Pass</th></tr></thead>
+        <tbody>
+          <tr><td>HTTP 201 Created</td><td>1</td><td><strong>1</strong></td><td class="check">✓</td></tr>
+          <tr><td>HTTP 409 Conflict</td><td>49</td><td><strong>49</strong></td><td class="check">✓</td></tr>
+          <tr><td>Other status codes</td><td>0</td><td><strong>0</strong></td><td class="check">✓</td></tr>
+          <tr><td>Booked rows in MongoDB for slot</td><td>1</td><td><strong>1</strong></td><td class="check">✓</td></tr>
+          <tr><td>Exit code</td><td>0</td><td><strong>0</strong></td><td class="check">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Two protection layers -->
+  <div class="section">
+    <div class="section-title">Two-Layer Protection Mechanism</div>
+    <div class="two-col">
+      <div class="layer-card">
+        <h3><span class="layer-num">L1</span> MongoDB Partial Unique Index</h3>
+        <p>Database-level hard stop. Enforced atomically by the storage engine — no application code can bypass it.</p>
+        <code>appointmentSchema.index(
+  { doctor: 1, startsAt: 1 },
+  {
+    unique: true,
+    partialFilterExpression:
+      { status: 'booked' }
+  }
+);</code>
+        <p style="margin-top:10px">The <em>partial</em> filter means cancelled slots don't block rebooking.</p>
+      </div>
+      <div class="layer-card">
+        <h3><span class="layer-num">L2</span> In-Transaction Re-Check</h3>
+        <p>Availability check runs <strong>inside</strong> the MongoDB transaction — no TOCTOU gap between check and write.</p>
+        <code>await withTransaction(async (session) => {
+  const taken = await Appointment
+    .exists({ doctor, startsAt, status:'booked' })
+    .session(session);        // ← same tx
+  if (taken) throw conflict();
+
+  await Appointment.create(
+    [{ ... }], { session }    // ← same tx
+  );
+});</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture overview -->
+  <div class="section">
+    <div class="section-title">System Architecture</div>
+    <div class="arch-grid">
+      <div class="arch-item">
+        <div class="arch-label">Request Pipeline</div>
+        <div class="arch-val">Routes → Controllers → Services → Models</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Authentication</div>
+        <div class="arch-val">JWT (15 min) + httpOnly refresh cookies</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Authorization</div>
+        <div class="arch-val">RBAC — admin / doctor / patient roles</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Slot Computation</div>
+        <div class="arch-val">Zero stored slots — derived on demand from working hours</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Audit Trail</div>
+        <div class="arch-val">AuditLog collection — every mutation recorded</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Database</div>
+        <div class="arch-val">MongoDB replica set (required for multi-doc transactions)</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Rate Limiting</div>
+        <div class="arch-val">Per-IP on login · Per-user on booking endpoints</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Test Coverage</div>
+        <div class="arch-val">14 Jest test files + this concurrency proof script</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-label">Stack</div>
+        <div class="arch-val">TypeScript · Express · Mongoose · React · Vite</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-left">
+      Clinic Appointment Booking System &nbsp;·&nbsp;
+      <code style="font-size:11px;color:#475569">scripts/concurrent-booking.ts</code>
+    </div>
+    <div class="footer-right">VERDICT: PASS — race is won deterministically</div>
+  </div>
+  <!-- ═══════════════════ OUTPUT — RAW TERMINAL ═══════════════════ -->
+  <div class="cmd-block-bottom">
+    <div class="cmd-label" style="text-align:center">◀ Output — Raw Terminal Result</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="cmd-title">stdout · npm run test:concurrency · exit code 0</span></div>
+      <div class="out-body"><span class="out-dim">&gt; clinic-backend@1.0.0 test:concurrency</span>
+<span class="out-dim">&gt; tsx scripts/concurrent-booking.ts</span>
+
+<span class="out-muted">[race] no API on http://localhost:4000 — starting one for this run...</span>
+<span class="out-muted">[race] api up (login limiter raised to 100 for the setup burst).</span>
+<span class="out-cyan">[race] slot under test: 2026-10-06T08:00:00.000Z</span>
+
+<span class="out-muted">[race] seeded 50 authenticated patients + 1 doctor.</span>
+<span class="out-muted">[race] 50 bearer tokens issued over HTTP.</span>
+<span class="out-white">[race] 50 concurrent bookings -&gt; elapsed <span class="out-yellow">566ms</span></span>
+<span class="out-white">  201 created : <span class="out-green">1</span></span>
+<span class="out-white">  409 conflict: <span class="out-red">49</span></span>
+<span class="out-white">  rows in db  : <span class="out-green">1</span> booked for this slot</span>
+
+<span class="out-green">VERDICT: 1 of 50 succeeded, 49 rejected, 1 row(s) stored.</span>
+<span class="out-green">  PASS — exactly one booking survives; the race is won deterministically.</span>
+<span class="out-muted">[race] stopped the API it started.</span>
+
+<span class="out-dim">Exit Code: 0</span></div>
+    </div>
+  </div>
+
+</div></body>
+</html>

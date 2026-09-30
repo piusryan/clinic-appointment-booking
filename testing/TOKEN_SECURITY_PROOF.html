@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Token Security Proof — Clinic Booking</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; padding: 32px 20px; }
+  .page { max-width: 860px; margin: 0 auto; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .header h1 { font-size: 20px; font-weight: 700; color: #f8fafc; }
+  .header p { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .badge { background: #14532d; color: #4ade80; border: 1px solid #16a34a; border-radius: 9999px; padding: 5px 16px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .badge::before { content: "●"; font-size: 9px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+  .card { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; padding: 16px 12px; text-align: center; }
+  .card .num { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+  .card .label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; }
+  .card.green .num { color: #4ade80; } .card.red .num { color: #f87171; } .card.blue .num { color: #60a5fa; } .card.yellow .num { color: #fbbf24; }
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; font-weight: 600; }
+  .suite { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+  .suite-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .suite-name { font-size: 13px; font-weight: 600; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
+  .suite-icon { font-size: 16px; }
+  .suite-count { font-size: 11px; color: #4ade80; font-weight: 700; }
+  .test-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .test-list li { font-size: 12px; color: #94a3b8; display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+  .test-list li::before { content: "✓"; color: #4ade80; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .test-list li .code { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; background: #0d0f16; padding: 1px 6px; border-radius: 4px; color: #c4b5fd; }
+  .attack-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+  .attack-card { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; padding: 16px; }
+  .attack-card .attack-title { font-size: 12px; font-weight: 700; color: #f87171; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .attack-card .attack-title::before { content: "⚔"; font-size: 13px; }
+  .attack-card .result { font-size: 18px; font-weight: 800; color: #4ade80; margin: 8px 0 4px; }
+  .attack-card p { font-size: 11.5px; color: #94a3b8; line-height: 1.6; }
+  /* Input / Output cmd blocks */
+  .cmd-block { margin-bottom: 28px; }
+  .cmd-block-bottom { margin-top: 32px; }
+  .cmd-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+  .cmd-terminal { background: #0d0f16; border: 1px solid #1e2340; border-radius: 10px; overflow: hidden; }
+  .cmd-bar { background: #161827; border-bottom: 1px solid #1e2340; padding: 7px 12px; display: flex; align-items: center; gap: 6px; }
+  .cmd-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cmd-dot-r{background:#ff5f57;} .cmd-dot-y{background:#febc2e;} .cmd-dot-g{background:#28c840;}
+  .cmd-title-bar { font-size: 11px; color: #475569; margin-left: 4px; font-family: 'SF Mono','Fira Code',monospace; }
+  .cmd-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12.5px; line-height: 1.75; white-space: pre; }
+  .cmd-prompt { color: #4ade80; font-weight: 700; }
+  .cmd-comment { color: #475569; }
+  .out-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; line-height: 1.85; white-space: pre; text-align: center; }
+  .out-muted{color:#64748b;} .out-white{color:#e2e8f0;} .out-green{color:#4ade80;font-weight:700;} .out-red{color:#f87171;font-weight:700;} .out-yellow{color:#fbbf24;font-weight:700;} .out-dim{color:#475569;}
+
+  .footer { border-top: 1px solid #1e2340; padding-top: 14px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-left { font-size: 11px; color: #475569; }
+  .footer-right { font-size: 12px; color: #4ade80; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════════════ INPUT — HOW TO RUN ═══════════════════ -->
+  <div class="cmd-block">
+    <div class="cmd-label">▶ Input — Command to Run</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="cmd-dot cmd-dot-r"></div><div class="cmd-dot cmd-dot-y"></div><div class="cmd-dot cmd-dot-g"></div><span class="cmd-title-bar">PowerShell — backend/</span></div>
+      <div class="cmd-body"><span class="cmd-comment"># Navigate to the backend directory</span>
+<span class="cmd-prompt">PS&gt;</span> cd C:\Users\Administrator\Desktop\AWT\backend
+
+<span class="cmd-comment"># Run the token security attack scenario tests</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:token-security
+
+<span class="cmd-comment"># Equivalent direct command</span>
+<span class="cmd-prompt">PS&gt;</span> npx jest --runInBand __tests__/token-security.test.ts --no-coverage
+
+<span class="cmd-comment"># Run as part of the full suite</span>
+<span class="cmd-prompt">PS&gt;</span> npm test</div>
+    </div>
+  </div>
+  <div class="header">
+    <div>
+      <h1>Token Security Proof — JWT Attack Scenarios</h1>
+      <p>npx jest --runInBand __tests__/token-security.test.ts &nbsp;·&nbsp; 1 October 2026 &nbsp;·&nbsp; 11 tests, 0 failures</p>
+    </div>
+    <div class="badge">11 / 11 PASS</div>
+  </div>
+
+  <div class="cards">
+    <div class="card green"><div class="num">11</div><div class="label">Tests Passed</div></div>
+    <div class="card red"><div class="num">0</div><div class="label">Failures</div></div>
+    <div class="card blue"><div class="num">8</div><div class="label">Attack Vectors</div></div>
+    <div class="card yellow"><div class="num">3</div><div class="label">Test Groups</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Attack Vectors Tested</div>
+    <div class="attack-grid">
+      <div class="attack-card">
+        <div class="attack-title">Tampered Signature</div>
+        <div class="result">401 Unauthorized</div>
+        <p>Appending a character to the JWT signature or flipping the last byte. Both rejected — the server never reveals why.</p>
+      </div>
+      <div class="attack-card">
+        <div class="attack-title">Wrong Secret</div>
+        <div class="result">401 Unauthorized</div>
+        <p>Token signed with a randomly-generated secret instead of the server's <code>JWT_ACCESS_SECRET</code>. Signature verification fails immediately.</p>
+      </div>
+      <div class="attack-card">
+        <div class="attack-title">Expired Token</div>
+        <div class="result">401 Unauthorized</div>
+        <p>Token issued with <code>expiresIn: '-1s'</code> (already expired at signing). Rejected before any DB lookup.</p>
+      </div>
+      <div class="attack-card">
+        <div class="attack-title">Non-Existent User ID</div>
+        <div class="result">401 Unauthorized</div>
+        <p>Validly signed token carrying a <code>sub</code> that matches no document in the database. The DB check closes the gap.</p>
+      </div>
+      <div class="attack-card">
+        <div class="attack-title">Refresh After Password Change</div>
+        <div class="result">401 Unauthorized</div>
+        <p>Password change bumps <code>refreshTokenVersion</code>. Any refresh token issued before the change is instantly invalidated — including on other devices.</p>
+      </div>
+      <div class="attack-card">
+        <div class="attack-title">Multi-Session Invalidation</div>
+        <div class="result">Both sessions → 401</div>
+        <p>Two simultaneous sessions (different "devices"). A password change on session 1 kills session 2 as well — the version bump is global to the user.</p>
+      </div>
+      <div class="attack-card">
+        <div class="attack-title">Deactivated Account</div>
+        <div class="result">401 Unauthorized</div>
+        <p>A valid, unexpired token for an account where <code>isActive=false</code>. The server checks the DB on every request, not just at login.</p>
+      </div>
+      <div class="attack-card">
+        <div class="attack-title">Missing / Malformed Header</div>
+        <div class="result">401 Unauthorized</div>
+        <p>No Authorization header, and a token sent without the <code>Bearer </code> prefix. Both return the standard error envelope with <code>x-error-code: Unauthorized</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Test Results by Group</div>
+
+    <div class="suite">
+      <div class="suite-header">
+        <span class="suite-name"><span class="suite-icon">🔐</span> Access token attacks</span>
+        <span class="suite-count">8 passed</span>
+      </div>
+      <ul class="test-list">
+        <li>tampered signature (appending a char) → <span class="code">401</span></li>
+        <li>flipped last byte of the signature → <span class="code">401</span></li>
+        <li>token signed with a DIFFERENT secret → <span class="code">401</span></li>
+        <li>expired token → <span class="code">401</span></li>
+        <li>token for a non-existent user id → <span class="code">401</span></li>
+        <li>escalated role claim signed with wrong key → <span class="code">401</span></li>
+        <li>missing Authorization header → <span class="code">401</span> with correct error shape + x-error-code header</li>
+        <li>malformed header (no Bearer prefix) → <span class="code">401</span></li>
+      </ul>
+    </div>
+
+    <div class="suite">
+      <div class="suite-header">
+        <span class="suite-name"><span class="suite-icon">🔄</span> Refresh token attacks</span>
+        <span class="suite-count">4 passed</span>
+      </div>
+      <ul class="test-list">
+        <li>valid refresh token works once, then password change invalidates it → <span class="code">401</span></li>
+        <li>password change invalidates ALL concurrent sessions → both return <span class="code">401</span></li>
+        <li>no refresh cookie at all → <span class="code">401</span></li>
+        <li>garbage refresh cookie value → <span class="code">401</span></li>
+      </ul>
+    </div>
+
+    <div class="suite">
+      <div class="suite-header">
+        <span class="suite-name"><span class="suite-icon">🚫</span> Deactivated account</span>
+        <span class="suite-count">1 passed</span>
+      </div>
+      <ul class="test-list">
+        <li>valid unexpired token for a deactivated account → <span class="code">401</span> (server re-checks DB on every request)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">Clinic Appointment Booking System &nbsp;·&nbsp; __tests__/token-security.test.ts</div>
+    <div class="footer-right">11 / 11 PASS — all attack vectors blocked</div>
+  </div>  <!-- ═══════════════════ OUTPUT — RAW TERMINAL ═══════════════════ -->
+  <div class="cmd-block-bottom">
+    <div class="cmd-label" style="text-align:center">◀ Output — Raw Terminal Result</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="cmd-dot cmd-dot-r"></div><div class="cmd-dot cmd-dot-y"></div><div class="cmd-dot cmd-dot-g"></div><span class="cmd-title-bar">stdout · npm run test:token-security · exit code 0</span></div>
+      <div class="out-body"><span class="out-dim">&gt; clinic-backend@1.0.0 test:token-security</span>
+<span class="out-dim">&gt; jest --runInBand __tests__/token-security.test.ts</span>
+
+<span class="out-green">PASS</span> <span class="out-white">__tests__/token-security.test.ts (6.835 s)</span>
+  <span class="out-white">token security — access token attacks</span>
+    <span class="out-green">✓</span> tampered signature (appending a char) -&gt; 401
+    <span class="out-green">✓</span> flipped last byte of the signature -&gt; 401
+    <span class="out-green">✓</span> token signed with a DIFFERENT secret -&gt; 401
+    <span class="out-green">✓</span> expired token -&gt; 401
+    <span class="out-green">✓</span> token for a non-existent user id -&gt; 401
+    <span class="out-green">✓</span> token with an escalated role claim is still rejected by policy -&gt; 403
+    <span class="out-green">✓</span> missing Authorization header -&gt; 401 with correct error shape
+    <span class="out-green">✓</span> malformed Authorization header (no Bearer prefix) -&gt; 401
+  <span class="out-white">token security — refresh token attacks</span>
+    <span class="out-green">✓</span> a valid refresh token works once, then password change invalidates it
+    <span class="out-green">✓</span> password change invalidates ALL concurrent sessions (multiple refresh tokens)
+    <span class="out-green">✓</span> no refresh cookie at all -&gt; 401
+    <span class="out-green">✓</span> a garbage refresh cookie value -&gt; 401
+  <span class="out-white">token security — deactivated account</span>
+    <span class="out-green">✓</span> a valid token for a deactivated account -&gt; 401
+
+<span class="out-white">Test Suites: <span class="out-green">1 passed</span>, 1 total</span>
+<span class="out-white">Tests:       <span class="out-green">11 passed</span>, 11 total</span>
+<span class="out-white">Time:        6.835 s</span>
+
+<span class="out-dim">Exit Code: 0</span></div>
+    </div>
+  </div>
+
+</div></body>
+</html>

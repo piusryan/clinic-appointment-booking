@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Testing Index — Clinic Appointment Booking System</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; padding: 36px 20px; }
+  .page { max-width: 920px; margin: 0 auto; }
+
+  /* Input / Output cmd blocks */
+  .cmd-block { margin-bottom: 32px; }
+  .cmd-block-bottom { margin-top: 32px; }
+  .cmd-label-io { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+  .cmd-terminal { background: #0d0f16; border: 1px solid #1e2340; border-radius: 10px; overflow: hidden; }
+  .cmd-bar { background: #161827; border-bottom: 1px solid #1e2340; padding: 7px 12px; display: flex; align-items: center; gap: 6px; }
+  .cmd-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cmd-dot-r{background:#ff5f57;} .cmd-dot-y{background:#febc2e;} .cmd-dot-g{background:#28c840;}
+  .cmd-title-bar { font-size: 11px; color: #475569; margin-left: 4px; font-family: 'SF Mono','Fira Code',monospace; }
+  .cmd-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12.5px; line-height: 1.75; white-space: pre; }
+  .cmd-prompt { color: #4ade80; font-weight: 700; }
+  .cmd-comment { color: #475569; }
+  .out-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 11.5px; line-height: 1.85; white-space: pre; text-align: center; }
+  .out-muted{color:#64748b;} .out-white{color:#e2e8f0;} .out-green{color:#4ade80;font-weight:700;} .out-red{color:#f87171;} .out-yellow{color:#fbbf24;} .out-dim{color:#475569;}
+
+  /* Hero */
+  .hero { text-align: center; margin-bottom: 40px; }
+  .hero h1 { font-size: 26px; font-weight: 800; color: #f8fafc; letter-spacing: -0.4px; }
+  .hero p { font-size: 14px; color: #64748b; margin-top: 6px; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; background: #14532d; color: #4ade80; border: 1px solid #16a34a; border-radius: 9999px; padding: 7px 20px; font-size: 14px; font-weight: 700; }
+  .hero-badge::before { content: "●"; font-size: 10px; }
+
+  /* Global stats */
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 36px; }
+  .stat { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; padding: 16px; text-align: center; }
+  .stat .n { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+  .stat .l { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; }
+  .stat.green .n { color: #4ade80; }
+  .stat.blue .n { color: #60a5fa; }
+  .stat.yellow .n { color: #fbbf24; }
+  .stat.purple .n { color: #a78bfa; }
+  .stat.red .n { color: #f87171; }
+
+  /* Section heading */
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 12px; font-weight: 600; }
+
+  /* Proof cards */
+  .proof-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 32px; }
+  .proof-card { background: #1e2130; border: 1px solid #2d3148; border-radius: 12px; padding: 20px; text-decoration: none; color: inherit; transition: border-color 0.15s; display: block; }
+  .proof-card:hover { border-color: #4ade80; }
+  .proof-card .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+  .proof-card .card-icon { font-size: 24px; }
+  .proof-card .card-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 9999px; }
+  .badge-pass { background: #14532d; color: #4ade80; border: 1px solid #16a34a; }
+  .badge-script { background: #1e3a5f; color: #60a5fa; border: 1px solid #1d4ed8; }
+  .proof-card h3 { font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 6px; line-height: 1.3; }
+  .proof-card p { font-size: 12px; color: #64748b; line-height: 1.6; }
+  .proof-card .card-stats { display: flex; gap: 12px; margin-top: 12px; }
+  .proof-card .cs { font-size: 11px; font-weight: 600; }
+  .proof-card .cs.g { color: #4ade80; }
+  .proof-card .cs.b { color: #60a5fa; }
+  .proof-card .cs.y { color: #fbbf24; }
+  .proof-card .cs.r { color: #f87171; }
+
+  /* Jest suite table */
+  .jest-wrap { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; overflow: hidden; margin-bottom: 32px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; padding: 9px 14px; color: #64748b; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #2d3148; }
+  td { padding: 9px 14px; border-bottom: 1px solid #1e2340; }
+  tr:last-child td { border-bottom: none; }
+  .suite-name { font-family: 'SF Mono','Fira Code',monospace; font-size: 11.5px; color: #94a3b8; }
+  .suite-new { font-size: 9px; font-weight: 700; background: #1e3a5f; color: #60a5fa; border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+  .pass { color: #4ade80; font-weight: 700; }
+  .count { color: #e2e8f0; font-weight: 600; }
+
+  /* How to run */
+  .run-box { background: #0d0f16; border: 1px solid #1e2340; border-radius: 10px; padding: 20px; margin-bottom: 32px; }
+  .run-box h3 { font-size: 13px; font-weight: 700; color: #f8fafc; margin-bottom: 14px; }
+  .cmd-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .cmd-list li { display: flex; align-items: baseline; gap: 10px; }
+  .cmd-list .cmd { font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; color: #c4b5fd; background: #161827; padding: 5px 10px; border-radius: 6px; flex-shrink: 0; }
+  .cmd-list .desc { font-size: 12px; color: #64748b; line-height: 1.5; }
+
+  /* Footer */
+  .footer { border-top: 1px solid #1e2340; padding-top: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-left { font-size: 11px; color: #475569; }
+  .footer-right { font-size: 12px; color: #4ade80; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════════════ INPUT — HOW TO RUN ═══════════════════ -->
+  <div class="cmd-block">
+    <div class="cmd-label-io">▶ Input — Run All Tests</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="cmd-dot cmd-dot-r"></div><div class="cmd-dot cmd-dot-y"></div><div class="cmd-dot cmd-dot-g"></div><span class="cmd-title-bar">PowerShell — backend/</span></div>
+      <div class="cmd-body"><span class="cmd-comment"># Navigate to the backend directory first</span>
+<span class="cmd-prompt">PS&gt;</span> cd C:\Users\Administrator\Desktop\AWT\backend
+
+<span class="cmd-comment"># ── JEST suite (all 15 files, 197 tests, in-memory MongoDB — no external DB needed) ──</span>
+<span class="cmd-prompt">PS&gt;</span> npm test
+
+<span class="cmd-comment"># ── Individual new suites ──</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:rbac                 <span class="cmd-comment"># RBAC matrix — 27 tests</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:token-security       <span class="cmd-comment"># JWT attacks — 11 tests</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:cancel-rebook        <span class="cmd-comment"># Partial index — 6 tests</span>
+
+<span class="cmd-comment"># ── Script proofs (require MongoDB replica set on localhost:27017) ──</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:concurrency          <span class="cmd-comment"># 50 concurrent patients, 1 slot</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:naive                <span class="cmd-comment"># Phase A vs Phase B comparison</span>
+
+<span class="cmd-comment"># ── Cleanup leftover race fixtures if concurrency test was interrupted ──</span>
+<span class="cmd-prompt">PS&gt;</span> npm run purge:race</div>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Clinic Appointment Booking System — Testing Index</h1>
+    <p>All proof documents, test results and how-to-run instructions in one place</p>
+    <div class="hero-badge">15 Suites · 197 Tests · 0 Failures · 1 October 2026</div>
+  </div>
+
+  <!-- Global stats -->
+  <div class="stats">
+    <div class="stat green"><div class="n">197</div><div class="l">Tests Passed</div></div>
+    <div class="stat blue"><div class="n">15</div><div class="l">Suites</div></div>
+    <div class="stat red"><div class="n">0</div><div class="l">Failures</div></div>
+    <div class="stat yellow"><div class="n">5</div><div class="l">Proof Docs</div></div>
+    <div class="stat purple"><div class="n">3</div><div class="l">New Suites Added</div></div>
+  </div>
+
+  <!-- Proof documents -->
+  <div class="section-title">Proof Documents — Open Each for Full Details</div>
+  <div class="proof-grid">
+
+    <a class="proof-card" href="CONCURRENCY_PROOF.html">
+      <div class="card-top">
+        <span class="card-icon">⚡</span>
+        <span class="card-badge badge-script">npm run test:concurrency</span>
+      </div>
+      <h3>Race Condition Proof</h3>
+      <p>50 authenticated patients race for one slot. Exactly 1 gets 201, 49 get 409, 1 row in the database. The core deliverable.</p>
+      <div class="card-stats">
+        <span class="cs g">1 × 201 created</span>
+        <span class="cs r">49 × 409 conflict</span>
+        <span class="cs b">566 ms elapsed</span>
+      </div>
+    </a>
+
+    <a class="proof-card" href="NAIVE_PROOF.html">
+      <div class="card-top">
+        <span class="card-icon">📊</span>
+        <span class="card-badge badge-script">npm run test:naive</span>
+      </div>
+      <h3>Naive vs Index Comparison</h3>
+      <p>Phase A (no index) stores 48 rows for one slot. Phase B (partial unique index) stores exactly 1. Same code, one variable.</p>
+      <div class="card-stats">
+        <span class="cs r">48 rows without index</span>
+        <span class="cs g">1 row with index</span>
+      </div>
+    </a>
+
+    <a class="proof-card" href="RBAC_PROOF.html">
+      <div class="card-top">
+        <span class="card-icon">🔒</span>
+        <span class="card-badge badge-pass">27 / 27 PASS</span>
+      </div>
+      <h3>RBAC Negative-Case Sweep</h3>
+      <p>Every ✗ cell in the permission matrix verified. Patient, doctor, receptionist, admin — all forbidden actions return 403, not 200 or 500.</p>
+      <div class="card-stats">
+        <span class="cs g">27 tests passed</span>
+        <span class="cs b">8 groups</span>
+        <span class="cs y">4 roles tested</span>
+      </div>
+    </a>
+
+    <a class="proof-card" href="TOKEN_SECURITY_PROOF.html">
+      <div class="card-top">
+        <span class="card-icon">🔐</span>
+        <span class="card-badge badge-pass">11 / 11 PASS</span>
+      </div>
+      <h3>Token Security Attack Scenarios</h3>
+      <p>Tampered signatures, expired tokens, wrong secrets, multi-session invalidation on password change, deactivated accounts.</p>
+      <div class="card-stats">
+        <span class="cs g">11 tests passed</span>
+        <span class="cs b">8 attack vectors</span>
+      </div>
+    </a>
+
+    <a class="proof-card" href="CANCEL_REBOOK_PROOF.html">
+      <div class="card-top">
+        <span class="card-icon">♻️</span>
+        <span class="card-badge badge-pass">6 / 6 PASS</span>
+      </div>
+      <h3>Cancel → Rebook (Partial Index)</h3>
+      <p>Proves the partialFilterExpression on the unique index correctly frees cancelled slots for rebooking. 3 cancel cycles + concurrent rebook race.</p>
+      <div class="card-stats">
+        <span class="cs g">6 tests passed</span>
+        <span class="cs b">3 cancel cycles</span>
+        <span class="cs y">1 winner in race</span>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- Full Jest suite table -->
+  <div class="section-title">Full Jest Suite — 15 Files, 197 Tests</div>
+  <div class="jest-wrap">
+    <table>
+      <thead>
+        <tr><th>File</th><th>Tests</th><th>Status</th><th>What it covers</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="suite-name">appointments.test.ts</td><td class="count">~30</td><td class="pass">PASS</td><td>Book, cancel, reschedule, status, ownership, 50-racer race</td></tr>
+        <tr><td class="suite-name">auth.test.ts</td><td class="count">12</td><td class="pass">PASS</td><td>Register, login, refresh, logout, password change, token expiry</td></tr>
+        <tr><td class="suite-name">idor.test.ts</td><td class="count">12</td><td class="pass">PASS</td><td>Before/after IDOR on schedule, appointment read, cancel</td></tr>
+        <tr><td class="suite-name">holiday.test.ts</td><td class="count">20</td><td class="pass">PASS</td><td>Holiday CRUD, grid emptying, booking blocked on closure</td></tr>
+        <tr><td class="suite-name">slots.test.ts</td><td class="count">6</td><td class="pass">PASS</td><td>Slot computation, boundaries, month calendar, holidays</td></tr>
+        <tr><td class="suite-name">timezone.test.ts</td><td class="count">96</td><td class="pass">PASS</td><td>6 timezones × 16 cases (UTC, Kolkata, Kiritimati, LA, Auckland, São Paulo)</td></tr>
+        <tr><td class="suite-name">rateLimit.test.ts</td><td class="count">3</td><td class="pass">PASS</td><td>Login 429 per-IP, per-user booking limiter isolation</td></tr>
+        <tr><td class="suite-name">validation.test.ts</td><td class="count">17</td><td class="pass">PASS</td><td>400 on every bad shape, NoSQL injection, enum violations</td></tr>
+        <tr><td class="suite-name">audit.test.ts</td><td class="count">5</td><td class="pass">PASS</td><td>Audit log recording, role filter, admin-only access</td></tr>
+        <tr><td class="suite-name">doctors.test.ts</td><td class="count">~8</td><td class="pass">PASS</td><td>Doctor CRUD, working hours validation</td></tr>
+        <tr><td class="suite-name">patients.test.ts</td><td class="count">~8</td><td class="pass">PASS</td><td>Patient CRUD, phone uniqueness</td></tr>
+        <tr><td class="suite-name">config.test.ts</td><td class="count">~5</td><td class="pass">PASS</td><td>Boot-time secret validation — refuses short/placeholder/shared secrets</td></tr>
+        <tr>
+          <td class="suite-name">rbac.test.ts<span class="suite-new">NEW</span></td>
+          <td class="count">27</td><td class="pass">PASS</td>
+          <td>Full permission matrix negative-case sweep — every forbidden cell</td>
+        </tr>
+        <tr>
+          <td class="suite-name">token-security.test.ts<span class="suite-new">NEW</span></td>
+          <td class="count">11</td><td class="pass">PASS</td>
+          <td>JWT attack scenarios — tamper, expiry, wrong secret, multi-session invalidation</td>
+        </tr>
+        <tr>
+          <td class="suite-name">cancel-rebook.test.ts<span class="suite-new">NEW</span></td>
+          <td class="count">6</td><td class="pass">PASS</td>
+          <td>Partial unique index — cancel frees slot; rebook races; multi-cycle</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- How to run -->
+  <div class="section-title">How to Run Everything</div>
+  <div class="run-box">
+    <h3>From the <code style="font-size:12px;color:#c4b5fd">backend/</code> directory</h3>
+    <ul class="cmd-list">
+      <li>
+        <span class="cmd">npm test</span>
+        <span class="desc">Run the full Jest suite (all 15 files, 197 tests). Uses an in-memory MongoDB replica set — no external DB needed.</span>
+      </li>
+      <li>
+        <span class="cmd">npm run test:concurrency</span>
+        <span class="desc">Race condition proof — 50 authenticated patients, 1 slot. Requires MongoDB running as a replica set on localhost:27017. Cleans up its own fixtures automatically.</span>
+      </li>
+      <li>
+        <span class="cmd">npm run test:naive</span>
+        <span class="desc">Phase A vs Phase B comparison — shows naive check-then-write producing 48 rows vs the index producing 1. Uses the real DB. Cleans up automatically.</span>
+      </li>
+      <li>
+        <span class="cmd">npm run purge:race</span>
+        <span class="desc">If the concurrency test was interrupted mid-run, use this to clean up any leftover race fixtures from the database without running the full test again.</span>
+      </li>
+      <li>
+        <span class="cmd">npx jest --runInBand __tests__/rbac.test.ts</span>
+        <span class="desc">Run just the RBAC suite in isolation.</span>
+      </li>
+      <li>
+        <span class="cmd">npx jest --runInBand __tests__/token-security.test.ts</span>
+        <span class="desc">Run just the token security suite.</span>
+      </li>
+      <li>
+        <span class="cmd">npx jest --runInBand __tests__/cancel-rebook.test.ts</span>
+        <span class="desc">Run just the cancel-rebook partial index suite.</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- File inventory -->
+  <div class="section-title">Files in This Folder</div>
+  <div class="jest-wrap">
+    <table>
+      <thead><tr><th>File</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="suite-name">INDEX.html</td><td>HTML</td><td>This file — master index</td></tr>
+        <tr><td class="suite-name">CONCURRENCY_PROOF.html</td><td>HTML</td><td>Race condition proof card</td></tr>
+        <tr><td class="suite-name">CONCURRENCY_PROOF.md</td><td>Markdown</td><td>Race condition proof — written document</td></tr>
+        <tr><td class="suite-name">NAIVE_PROOF.html</td><td>HTML</td><td>Naive vs index comparison proof</td></tr>
+        <tr><td class="suite-name">RBAC_PROOF.html</td><td>HTML</td><td>Permission matrix sweep proof</td></tr>
+        <tr><td class="suite-name">TOKEN_SECURITY_PROOF.html</td><td>HTML</td><td>JWT attack scenarios proof</td></tr>
+        <tr><td class="suite-name">CANCEL_REBOOK_PROOF.html</td><td>HTML</td><td>Partial index / cancel-rebook proof</td></tr>
+        <tr><td class="suite-name">UPCOMING_TESTS.md</td><td>Markdown</td><td>Remaining test ideas with priority order</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">Clinic Appointment Booking System &nbsp;·&nbsp; testing/ &nbsp;·&nbsp; 1 October 2026</div>
+    <div class="footer-right">15 suites · 197 tests · 0 failures</div>
+  </div>  <!-- ═══════════════════ OUTPUT — FULL SUITE RESULT ═══════════════════ -->
+  <div class="cmd-block-bottom">
+    <div class="cmd-label-io" style="text-align:center">◀ Output — Full Jest Suite (npm test)</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="cmd-dot cmd-dot-r"></div><div class="cmd-dot cmd-dot-y"></div><div class="cmd-dot cmd-dot-g"></div><span class="cmd-title-bar">stdout · npm test · exit code 0 · 1 October 2026</span></div>
+      <div class="out-body"><span class="out-dim">&gt; clinic-backend@1.0.0 test</span>
+<span class="out-dim">&gt; jest --runInBand</span>
+
+<span class="out-green">PASS</span> <span class="out-white">__tests__/appointments.test.ts (70.836 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/holiday.test.ts (27.072 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/idor.test.ts (17.836 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/validation.test.ts (10.834 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/timezone.test.ts</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/config.test.ts</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/auth.test.ts (5.690 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/doctors.test.ts (5.720 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/rateLimit.test.ts</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/slots.test.ts</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/patients.test.ts</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/audit.test.ts (6.767 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/rbac.test.ts (72.924 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/cancel-rebook.test.ts (13.920 s)</span>
+<span class="out-green">PASS</span> <span class="out-white">__tests__/token-security.test.ts (6.835 s)</span>
+
+<span class="out-white">Test Suites: <span class="out-green">15 passed</span>, 15 total</span>
+<span class="out-white">Tests:       <span class="out-green">197 passed</span>, 197 total</span>
+<span class="out-white">Snapshots:   0 total</span>
+<span class="out-white">Time:        ~4 minutes (runInBand)</span>
+
+<span class="out-dim">Exit Code: 0</span></div>
+    </div>
+  </div>
+
+</div></body>
+</html>

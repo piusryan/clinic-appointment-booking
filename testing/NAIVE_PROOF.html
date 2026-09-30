@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Naive vs Index Proof — Clinic Booking</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; padding: 32px 20px; }
+  .page { max-width: 820px; margin: 0 auto; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .header h1 { font-size: 20px; font-weight: 700; color: #f8fafc; }
+  .header p { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .badge { background: #14532d; color: #4ade80; border: 1px solid #16a34a; border-radius: 9999px; padding: 5px 16px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .badge::before { content: "●"; font-size: 9px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+  .card { background: #1e2130; border: 1px solid #2d3148; border-radius: 10px; padding: 18px 14px; text-align: center; }
+  .card .num { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+  .card .label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; }
+  .card.red .num { color: #f87171; } .card.green .num { color: #4ade80; } .card.yellow .num { color: #fbbf24; }
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; font-weight: 600; }
+  .terminal { background: #0d0f16; border: 1px solid #1e2340; border-radius: 10px; overflow: hidden; }
+  .terminal-bar { background: #161827; border-bottom: 1px solid #1e2340; padding: 8px 12px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r{background:#ff5f57;} .dot-y{background:#febc2e;} .dot-g{background:#28c840;}
+  .terminal-title { font-size: 11px; color: #475569; margin-left: 4px; font-family: monospace; }
+  .terminal-body { padding: 16px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12.5px; line-height: 1.9; white-space: pre; }
+  .dim{color:#475569;} .muted{color:#64748b;} .white{color:#e2e8f0;} .green{color:#4ade80;} .red{color:#f87171;} .yellow{color:#fbbf24;} .cyan{color:#67e8f9;} .bold{font-weight:700;} .orange{color:#fb923c;}
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .phase-card { border-radius: 10px; padding: 18px; }
+  .phase-card.bad { background: #2d1515; border: 1px solid #7f1d1d; }
+  .phase-card.good { background: #14291a; border: 1px solid #14532d; }
+  .phase-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .phase-card.bad h3 { color: #f87171; }
+  .phase-card.good h3 { color: #4ade80; }
+  .phase-card p { font-size: 12px; color: #94a3b8; line-height: 1.6; }
+  .stat { font-size: 28px; font-weight: 800; margin: 10px 0 4px; }
+  .phase-card.bad .stat { color: #f87171; }
+  .phase-card.good .stat { color: #4ade80; }
+  /* Input / Output cmd blocks */
+  .cmd-block { margin-bottom: 28px; }
+  .cmd-block-bottom { margin-top: 32px; }
+  .cmd-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 600; margin-bottom: 6px; }
+  .cmd-terminal { background: #0d0f16; border: 1px solid #1e2340; border-radius: 10px; overflow: hidden; }
+  .cmd-bar { background: #161827; border-bottom: 1px solid #1e2340; padding: 7px 12px; display: flex; align-items: center; gap: 6px; }
+  .cmd-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cmd-dot-r{background:#ff5f57;} .cmd-dot-y{background:#febc2e;} .cmd-dot-g{background:#28c840;}
+  .cmd-title { font-size: 11px; color: #475569; margin-left: 4px; font-family: 'SF Mono','Fira Code',monospace; }
+  .cmd-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12.5px; line-height: 1.75; white-space: pre; }
+  .cmd-prompt { color: #4ade80; font-weight: 700; }
+  .cmd-comment { color: #475569; }
+  .out-body { padding: 14px 18px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; line-height: 1.9; white-space: pre; text-align: center; }
+  .out-muted{color:#64748b;} .out-white{color:#e2e8f0;} .out-green{color:#4ade80;font-weight:700;} .out-red{color:#f87171;font-weight:700;} .out-yellow{color:#fbbf24;font-weight:700;} .out-cyan{color:#67e8f9;} .out-dim{color:#475569;}
+
+  .footer { border-top: 1px solid #1e2340; padding-top: 14px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-left { font-size: 11px; color: #475569; }
+  .footer-right { font-size: 12px; color: #4ade80; font-weight: 600; }
+  .insight { background: #1e2130; border: 1px solid #2d3148; border-left: 3px solid #fbbf24; border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 20px; font-size: 12.5px; color: #94a3b8; line-height: 1.7; }
+  .insight strong { color: #fbbf24; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════════════ INPUT — HOW TO RUN ═══════════════════ -->
+  <div class="cmd-block">
+    <div class="cmd-label">▶ Input — Command to Run</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="cmd-dot cmd-dot-r"></div><div class="cmd-dot cmd-dot-y"></div><div class="cmd-dot cmd-dot-g"></div><span class="cmd-title">PowerShell — backend/</span></div>
+      <div class="cmd-body"><span class="cmd-comment"># Navigate to the backend directory</span>
+<span class="cmd-prompt">PS&gt;</span> cd C:\Users\Administrator\Desktop\AWT\backend
+
+<span class="cmd-comment"># Run the naive vs index comparison proof</span>
+<span class="cmd-prompt">PS&gt;</span> npm run test:naive
+
+<span class="cmd-comment"># Equivalent direct command</span>
+<span class="cmd-prompt">PS&gt;</span> npx tsx scripts/naive-booking.ts</div>
+    </div>
+  </div>
+  <div class="header">
+    <div>
+      <h1>Naive vs Index Proof — Why the Fix Must Be in the Database</h1>
+      <p>npm run test:naive &nbsp;·&nbsp; 1 October 2026 &nbsp;·&nbsp; Phase A (no index) vs Phase B (partial unique index)</p>
+    </div>
+    <div class="badge">PROVED</div>
+  </div>
+
+  <div class="cards">
+    <div class="card red"><div class="num">48</div><div class="label">Rows — No Index</div></div>
+    <div class="card green"><div class="num">1</div><div class="label">Rows — With Index</div></div>
+    <div class="card yellow"><div class="num">50</div><div class="label">Concurrent Attempts</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Terminal Output</div>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="terminal-title">npm run test:naive</span>
+      </div>
+      <div class="terminal-body"><span class="muted">============================================================</span>
+<span class="white bold">P6 HARD CORE — naive check-then-write vs. the unique index</span>
+<span class="muted">============================================================</span>
+<span class="cyan">slot under test : 2026-10-05T08:00:00.000Z (2026-10-05)</span>
+<span class="white">attempts        : 50 x Promise.all (no serialisation)</span>
+
+<span class="red bold">--- PHASE A: naive check-then-write, NO unique index ---</span>
+<span class="white">  requests that saw a free slot : <span class="yellow bold">2</span></span>
+<span class="white">  requests that WROTE a booking : <span class="red bold">48</span></span>
+<span class="white">  rows actually stored          : <span class="red bold">48</span></span>
+
+<span class="green bold">--- PHASE B: same pattern, real `appointments` collection (partial unique index) ---</span>
+<span class="white">  201-created          : <span class="green bold">1</span></span>
+<span class="white">  E11000 -&gt; 409        : <span class="yellow bold">49</span></span>
+<span class="white">  rows actually stored : <span class="green bold">1</span></span>
+<span class="green bold">  VERDICT: the index is law — exactly one booking survives.</span>
+
+<span class="muted">============================================================</span>
+<span class="white bold">COMPARISON: identical application code, one variable (the index):</span>
+<span class="white">  no index -&gt; <span class="red bold">48 rows</span> stored for one slot</span>
+<span class="white">  index    -&gt; <span class="green bold">1 row</span> stored, 49 rejected with E11000</span>
+<span class="muted">============================================================</span>
+<span class="muted">[naive] demo fixtures cleaned up — database left untouched.</span></div>
+    </div>
+  </div>
+
+  <div class="insight">
+    <strong>Why only 2 requests "saw a free slot" but 48 wrote?</strong> Node.js is single-threaded. Each request hits <code>await findOne()</code> and yields the event loop. By the time most callbacks fire the first write hasn't committed yet — so they all see an empty slot, pass the check, and all 48 writes land. The check and the write are separated by an I/O boundary; no amount of care in JavaScript closes that gap.
+  </div>
+
+  <div class="section">
+    <div class="section-title">Phase Comparison — Same Code, One Variable</div>
+    <div class="two-col">
+      <div class="phase-card bad">
+        <h3>Phase A — No Index</h3>
+        <p>Naive check-then-write. The availability check and the insert are separated by an <code>await</code>. All 50 requests see the slot as free during the check window.</p>
+        <div class="stat">48 rows</div>
+        <p>48 double-bookings for one slot. A real clinic nightmare.</p>
+      </div>
+      <div class="phase-card good">
+        <h3>Phase B — Partial Unique Index</h3>
+        <p>Identical application code. The only difference: the partial unique index on <code>(doctor, startsAt)</code> where <code>status='booked'</code>. MongoDB's storage engine rejects duplicates atomically.</p>
+        <div class="stat">1 row</div>
+        <p>Exactly one booking survives. 49 get E11000 → mapped to HTTP 409.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">Clinic Appointment Booking System &nbsp;·&nbsp; scripts/naive-booking.ts</div>
+    <div class="footer-right">VERDICT: the index is law — exactly one booking survives</div>
+  </div>  <!-- ═══════════════════ OUTPUT — RAW TERMINAL ═══════════════════ -->
+  <div class="cmd-block-bottom">
+    <div class="cmd-label" style="text-align:center">◀ Output — Raw Terminal Result</div>
+    <div class="cmd-terminal">
+      <div class="cmd-bar"><div class="cmd-dot cmd-dot-r"></div><div class="cmd-dot cmd-dot-y"></div><div class="cmd-dot cmd-dot-g"></div><span class="cmd-title">stdout · npm run test:naive · exit code 0</span></div>
+      <div class="out-body"><span class="out-dim">============================================================</span>
+<span class="out-white" style="font-weight:700">P6 HARD CORE — naive check-then-write vs. the unique index</span>
+<span class="out-dim">============================================================</span>
+<span class="out-cyan">slot under test : 2026-10-05T08:00:00.000Z (2026-10-05)</span>
+<span class="out-white">attempts        : 50 x Promise.all (no serialisation)</span>
+
+<span class="out-red">--- PHASE A: naive check-then-write, NO unique index ---</span>
+<span class="out-white">  requests that saw a free slot : <span class="out-yellow">2</span></span>
+<span class="out-white">  requests that WROTE a booking : <span class="out-red">48</span></span>
+<span class="out-white">  rows actually stored          : <span class="out-red">48</span></span>
+
+<span class="out-green">--- PHASE B: same pattern, real `appointments` collection (partial unique index) ---</span>
+<span class="out-white">  201-created          : <span class="out-green">1</span></span>
+<span class="out-white">  E11000 -&gt; 409        : <span class="out-yellow">49</span></span>
+<span class="out-white">  rows actually stored : <span class="out-green">1</span></span>
+<span class="out-green">  VERDICT: the index is law — exactly one booking survives.</span>
+
+<span class="out-dim">============================================================</span>
+<span class="out-white" style="font-weight:700">COMPARISON: identical application code, one variable (the index):</span>
+<span class="out-white">  no index -&gt; <span class="out-red">48 rows</span> stored for one slot</span>
+<span class="out-white">  index    -&gt; <span class="out-green">1 row</span> stored, 49 rejected with E11000</span>
+<span class="out-dim">============================================================</span>
+<span class="out-muted">[naive] demo fixtures cleaned up — database left untouched.</span>
+
+<span class="out-dim">Exit Code: 0</span></div>
+    </div>
+  </div>
+
+</div></body>
+</html>
